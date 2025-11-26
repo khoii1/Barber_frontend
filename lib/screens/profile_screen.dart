@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'admin/admin_dashboard_screen.dart';
 import 'purchase_history_screen.dart';
+import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 // Color scheme matching the design
 const Color _darkGreen = Color(0xFF2D5016);
@@ -35,7 +37,7 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                   decoration: const BoxDecoration(color: _darkGreen),
                   child: const Text(
-                    'PROFILE',
+                    'Hồ Sơ Cá Nhân',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -160,11 +162,9 @@ class ProfileScreen extends StatelessWidget {
                                 icon: Icons.person_outline,
                                 title: 'Thông tin cá nhân',
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Tính năng đang phát triển',
-                                      ),
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const EditProfileScreen(),
                                     ),
                                   );
                                 },
@@ -173,24 +173,10 @@ class ProfileScreen extends StatelessWidget {
                                 icon: Icons.lock_outline,
                                 title: 'Đổi mật khẩu',
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Tính năng đang phát triển',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.notifications_outlined,
-                                title: 'Thông báo',
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Tính năng đang phát triển',
-                                      ),
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const ChangePasswordScreen(),
                                     ),
                                   );
                                 },
@@ -201,21 +187,8 @@ class ProfileScreen extends StatelessWidget {
                                 onTap: () {
                                   Navigator.of(context).push(
                                     MaterialPageRoute(
-                                      builder: (_) => const PurchaseHistoryScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _ProfileMenuItem(
-                                icon: Icons.info_outline,
-                                title: 'Về ứng dụng',
-                                onTap: () {
-                                  showAboutDialog(
-                                    context: context,
-                                    applicationName: 'Barber Shop',
-                                    applicationVersion: '1.0.0',
-                                    applicationIcon: const Icon(
-                                      Icons.content_cut,
+                                      builder: (_) =>
+                                          const PurchaseHistoryScreen(),
                                     ),
                                   );
                                 },
@@ -247,12 +220,21 @@ class ProfileScreen extends StatelessWidget {
                                     ),
                                   );
 
-                                  if (confirmed == true && context.mounted) {
-                                    await authProvider.logout();
-                                    // Không cần navigate thủ công, AuthWrapper sẽ tự động xử lý
-                                    // Chỉ cần pop tất cả routes về root để AuthWrapper rebuild
+                                  if (confirmed == true) {
+                                    // Đóng dialog
                                     if (context.mounted) {
-                                      Navigator.of(context).popUntil((route) => route.isFirst);
+                                      Navigator.of(context).pop();
+                                    }
+
+                                    // Đăng xuất
+                                    await authProvider.logout();
+
+                                    // Pop tất cả routes về root để AuthWrapper tự rebuild
+                                    // AuthWrapper sẽ tự động chuyển về LoginScreen khi isAuthenticated = false
+                                    if (context.mounted) {
+                                      Navigator.of(
+                                        context,
+                                      ).popUntil((route) => route.isFirst);
                                     }
                                   }
                                 },

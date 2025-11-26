@@ -8,7 +8,9 @@ class ProductProvider with ChangeNotifier {
   String? _errorMessage;
 
   List<Product> get products => _products;
-  List<Product> get availableProducts => _products.where((p) => p.isInStock && p.isActive).toList();
+  // Chỉ lọc theo isActive, không lọc theo stock
+  // Sản phẩm hết hàng (stock = 0) vẫn hiển thị nếu isActive = true
+  List<Product> get availableProducts => _products.where((p) => p.isActive).toList();
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 

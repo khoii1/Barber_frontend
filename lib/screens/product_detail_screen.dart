@@ -44,7 +44,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _loadProductDetails() async {
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(
+      context,
+      listen: false,
+    );
     final updatedProduct = productProvider.getProductById(widget.product.id);
     if (updatedProduct != null) {
       setState(() {
@@ -78,15 +81,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     if (_quantity > _currentProduct!.stock) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Số lượng vượt quá tồn kho. Chỉ còn ${_currentProduct!.stock} sản phẩm'),
+          content: Text(
+            'Số lượng vượt quá tồn kho. Chỉ còn ${_currentProduct!.stock} sản phẩm',
+          ),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    
+    final productProvider = Provider.of<ProductProvider>(
+      context,
+      listen: false,
+    );
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -112,7 +120,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (result['success'] == true) {
         // Reload product details
         await _loadProductDetails();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -196,7 +204,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     // Product Name
                     Text(
                       product.name,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: _darkGreen,
                           ),
@@ -208,8 +217,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Text(
                         'Mã SKU: ${product.sku}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
+                          color: Colors.grey[600],
+                        ),
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -217,7 +226,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     // Price
                     Text(
                       product.formattedPrice,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: _darkGreen,
                           ),
@@ -235,8 +245,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(width: 8),
                         Text(
                           product.stockStatus,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: product.isInStock ? Colors.green : Colors.red,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: product.isInStock
+                                    ? Colors.green
+                                    : Colors.red,
                                 fontWeight: FontWeight.w500,
                               ),
                         ),
@@ -248,31 +261,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
 
             // Description
-            if (product.description != null && product.description!.isNotEmpty) ...[
+            if (product.description != null &&
+                product.description!.isNotEmpty) ...[
+              const SizedBox(height: 16),
               Card(
-                margin: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Mô tả sản phẩm',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: _darkGreen,
-                            ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            color: _darkGreen,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Mô tả sản phẩm',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: _darkGreen,
+                                ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        product.description!,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _lightBeige.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _darkGreen.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          product.description!,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                height: 1.6,
+                                letterSpacing: 0.3,
+                                color: Colors.grey[800],
+                              ),
+                          textAlign: TextAlign.justify,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ],
+
+            const SizedBox(height: 24),
 
             // Quantity Selector
             Card(
@@ -285,48 +331,127 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Text(
                       'Số lượng',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: _darkGreen,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: _darkGreen,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: _quantity > 1
-                                  ? () => setState(() => _quantity--)
-                                  : null,
-                              color: _darkGreen,
+                        // Quantity Selector
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: _darkGreen.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
                             ),
-                            Container(
-                              width: 60,
-                              alignment: Alignment.center,
-                              child: Text(
-                                '$_quantity',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _quantity > 1
+                                        ? () => setState(() => _quantity--)
+                                        : null,
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      bottomLeft: Radius.circular(12),
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Icon(
+                                        Icons.remove,
+                                        color: _quantity > 1
+                                            ? _darkGreen
+                                            : Colors.grey[400],
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Text(
+                                    '$_quantity',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: _darkGreen,
+                                        ),
+                                  ),
+                                ),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap:
+                                        (_quantity < maxQuantity &&
+                                            product.isInStock)
+                                        ? () => setState(() => _quantity++)
+                                        : null,
+                                    borderRadius: const BorderRadius.only(
+                                      topRight: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Icon(
+                                        Icons.add,
+                                        color:
+                                            (_quantity < maxQuantity &&
+                                                product.isInStock)
+                                            ? _darkGreen
+                                            : Colors.grey[400],
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Total Price
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _darkGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tổng',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Colors.grey[600],
+                                      fontSize: 12,
                                     ),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
-                              onPressed: _quantity < maxQuantity
-                                  ? () => setState(() => _quantity++)
-                                  : null,
-                              color: _darkGreen,
-                            ),
-                          ],
-                        ),
-                        Text(
-                          'Tổng: ${_formatPrice(product.priceVnd * _quantity)}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: _darkGreen,
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatPrice(product.priceVnd * _quantity),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: _darkGreen,
+                                    ),
                               ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -370,4 +495,3 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 }
-

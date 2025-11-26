@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import 'api_service.dart';
 import '../config/api_config.dart';
+import 'notification_service.dart';
 
 class AuthService {
   static Future<Map<String, dynamic>> login(
@@ -18,7 +19,8 @@ class AuthService {
       // Xử lý lỗi 401 trước khi parse JSON
       if (response.statusCode == 401) {
         // Thử parse JSON để lấy message từ server
-        String errorMessage = 'Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
+        String errorMessage =
+            'Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
         try {
           if (response.body.isNotEmpty) {
             final errorData = json.decode(response.body);
@@ -29,10 +31,12 @@ class AuthService {
                   serverMessage.toLowerCase().contains('invalid') ||
                   serverMessage.toLowerCase().contains('wrong') ||
                   serverMessage.toLowerCase().contains('incorrect')) {
-                errorMessage = 'Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
+                errorMessage =
+                    'Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
               } else if (serverMessage.toLowerCase().contains('not found') ||
-                         serverMessage.toLowerCase().contains('user not found')) {
-                errorMessage = 'Tài khoản không tồn tại. Vui lòng kiểm tra lại.';
+                  serverMessage.toLowerCase().contains('user not found')) {
+                errorMessage =
+                    'Tài khoản không tồn tại. Vui lòng kiểm tra lại.';
               } else {
                 // Giữ nguyên message nếu đã là tiếng Việt hoặc không phải các trường hợp trên
                 errorMessage = serverMessage;
@@ -43,10 +47,7 @@ class AuthService {
           // Nếu không parse được JSON, dùng message mặc định
           print('Error parsing 401 response: $e');
         }
-        return {
-          'success': false,
-          'message': errorMessage,
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
       // Parse JSON một cách an toàn
@@ -64,21 +65,28 @@ class AuthService {
         // Lưu token
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', data['token']);
-        await prefs.setString('user_id', data['user']['_id'] ?? data['user']['id']);
+        await prefs.setString(
+          'user_id',
+          data['user']['_id'] ?? data['user']['id'],
+        );
         // Lưu đầy đủ user data
         await prefs.setString('user_data', json.encode(data['user']));
 
         // Parse user object
         final user = User.fromJson(data['user']);
-        
+
         // Debug: In ra role để kiểm tra
         print('Login - User role: ${user.role}');
 
-        return {
-          'success': true,
-          'token': data['token'],
-          'user': user,
-        };
+        // Đăng ký FCM token để nhận push notification
+        try {
+          await NotificationService.registerFCMToken();
+        } catch (e) {
+          print('⚠️ Lỗi đăng ký FCM token: $e');
+          // Không throw error, vì đăng ký token không ảnh hưởng đến login
+        }
+
+        return {'success': true, 'token': data['token'], 'user': user};
       } else {
         // Xử lý các lỗi khác
         return {
@@ -89,15 +97,17 @@ class AuthService {
     } catch (e) {
       // Xử lý lỗi kết nối hoặc lỗi khác
       print('Login error: $e');
-      String errorMessage = 'Lỗi kết nối. Vui lòng kiểm tra kết nối mạng và thử lại.';
-      
+      String errorMessage =
+          'Lỗi kết nối. Vui lòng kiểm tra kết nối mạng và thử lại.';
+
       // Kiểm tra nếu là lỗi mạng
-      if (e.toString().contains('SocketException') || 
+      if (e.toString().contains('SocketException') ||
           e.toString().contains('Failed host lookup') ||
           e.toString().contains('Connection refused')) {
-        errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
+        errorMessage =
+            'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
       }
-      
+
       return {'success': false, 'message': errorMessage};
     }
   }
@@ -136,11 +146,11 @@ class AuthService {
   static Future<User?> getCurrentUser({bool forceRefresh = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Luôn lấy từ API để đảm bảo role được cập nhật đúng
       // (đặc biệt quan trọng khi user có Stylist profile nhưng role chưa được sync)
       final response = await ApiService.get(ApiConfig.auth + '/me');
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         await prefs.setString('user_data', json.encode(data));
@@ -152,7 +162,7 @@ class AuthService {
         await prefs.remove('user_data');
         return null;
       }
-      
+
       // Nếu API fail với status code khác, thử dùng cache (fallback)
       if (!forceRefresh) {
         try {
@@ -164,7 +174,7 @@ class AuthService {
           // Ignore cache error
         }
       }
-      
+
       return null;
     } catch (e) {
       // Nếu API fail, thử dùng cache (fallback) - chỉ khi không phải lỗi 401
@@ -198,5 +208,75 @@ class AuthService {
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null && token.isNotEmpty;
+  }
+
+  // Update user profile
+  static Future<Map<String, dynamic>> updateProfile({
+    String? fullName,
+    String? email,
+    String? phone,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (fullName != null) body['fullName'] = fullName;
+      if (email != null) body['email'] = email;
+      if (phone != null) body['phone'] = phone;
+
+      final response = await ApiService.patch(
+        ApiConfig.auth + '/me',
+        body,
+        includeAuth: true,
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        // Update cached user data
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', json.encode(data));
+        return {
+          'success': true,
+          'user': User.fromJson(data),
+          'message': 'Cập nhật thông tin thành công',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Cập nhật thông tin thất bại',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    }
+  }
+
+  // Change password
+  static Future<Map<String, dynamic>> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await ApiService.patch(
+        ApiConfig.auth + '/change-password',
+        {'oldPassword': oldPassword, 'newPassword': newPassword},
+        includeAuth: true,
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Đổi mật khẩu thành công',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Đổi mật khẩu thất bại',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Lỗi kết nối: ${e.toString()}'};
+    }
   }
 }

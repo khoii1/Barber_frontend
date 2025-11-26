@@ -5,6 +5,7 @@ import '../models/stylist.dart';
 import '../providers/stylist_provider.dart';
 import '../providers/appointment_provider.dart';
 import '../services/availability_service.dart';
+import '../services/stylist_schedule_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'home_screen.dart';
 
@@ -24,10 +25,13 @@ class BookAppointmentScreen extends StatefulWidget {
 
 class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   Stylist? _selectedStylist;
-  DateTime _selectedDate = DateTime.now();
+  // Sử dụng local date (không có time, chỉ có year, month, day)
+  late DateTime _selectedDate;
   String? _selectedTimeSlot;
   List<String> _availableSlots = [];
   bool _isLoadingSlots = false;
+  Set<String> _availableStylistIds = {}; // IDs của các stylists có schedule vào ngày được chọn
+  bool _isLoadingStylists = false;
 
   // Tất cả các time slots có thể có (như trong hình)
   final List<String> _allTimeSlots = [
@@ -49,6 +53,9 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
   @override
   void initState() {
     super.initState();
+    // Khởi tạo _selectedDate với local date (không có time)
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
     _selectedStylist = widget.stylist;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final stylistProvider = Provider.of<StylistProvider>(
@@ -56,13 +63,117 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         listen: false,
       );
       stylistProvider.loadStylists();
+      _loadAvailableStylistsForDate(_selectedDate);
       if (_selectedStylist == null && stylistProvider.stylists.isNotEmpty) {
-        setState(() {
-          _selectedStylist = stylistProvider.stylists.first;
-        });
+        // Sẽ set sau khi load available stylists
       }
       _loadAvailableSlots();
     });
+  }
+
+  Future<void> _loadAvailableStylistsForDate(DateTime date) async {
+    setState(() {
+      _isLoadingStylists = true;
+    });
+
+    try {
+      // Format date string sử dụng local date (không bị ảnh hưởng bởi timezone)
+      // Đảm bảo sử dụng year, month, day từ local DateTime
+      final localDate = DateTime(date.year, date.month, date.day);
+      final dateStr = '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
+      final schedules = await StylistScheduleService.getSchedulesByDate(dateStr);
+      
+      print('📅 Loading schedules for date: $dateStr');
+      print('📋 Schedules received: ${schedules.length}');
+      
+      // Lấy danh sách stylist IDs có schedule vào ngày này
+      final availableIds = <String>{};
+      
+      for (final schedule in schedules) {
+        final stylistId = schedule['stylistId'];
+        String? id;
+        
+        print('🔍 Processing schedule: ${schedule['_id']}, stylistId type: ${stylistId.runtimeType}');
+        print('🔍 stylistId value: $stylistId');
+        
+        if (stylistId is Map) {
+          // Nếu stylistId là object đã populate
+          id = stylistId['_id']?.toString();
+          if (id == null) {
+            // Thử lấy từ 'id' nếu không có '_id'
+            id = stylistId['id']?.toString();
+          }
+        } else if (stylistId is String) {
+          // Nếu stylistId là string
+          id = stylistId;
+        }
+        
+        if (id != null && id.isNotEmpty) {
+          availableIds.add(id);
+          print('✅ Found stylist ID: $id');
+        } else {
+          print('⚠️ Invalid stylistId in schedule: $stylistId (type: ${stylistId.runtimeType})');
+        }
+      }
+      
+      print('📊 Available stylist IDs: $availableIds');
+
+      if (mounted) {
+        final stylistProvider = Provider.of<StylistProvider>(
+          context,
+          listen: false,
+        );
+        
+        print('📋 All stylists in provider: ${stylistProvider.stylists.map((s) => s.id).toList()}');
+        
+        // Kiểm tra xem có stylist nào match không
+        // Normalize IDs để so sánh (loại bỏ khoảng trắng, chuyển về lowercase)
+        final normalizedAvailableIds = availableIds.map((id) => id.trim().toLowerCase()).toSet();
+        final matchingStylists = stylistProvider.stylists
+            .where((s) {
+              final normalizedId = s.id.trim().toLowerCase();
+              final matches = normalizedAvailableIds.contains(normalizedId);
+              if (!matches) {
+                print('❌ Stylist ${s.fullName} (ID: ${s.id}) not in available IDs');
+              }
+              return matches;
+            })
+            .toList();
+        
+        print('🎯 Matching stylists: ${matchingStylists.map((s) => s.fullName).toList()}');
+        
+        setState(() {
+          _availableStylistIds = availableIds;
+          _isLoadingStylists = false;
+        });
+
+        // Nếu selected stylist không có trong danh sách available, chọn stylist đầu tiên có schedule
+        final normalizedSelectedId = _selectedStylist?.id.trim().toLowerCase();
+        final isSelectedStylistAvailable = normalizedSelectedId != null && 
+            normalizedAvailableIds.contains(normalizedSelectedId);
+        
+        if (_selectedStylist == null || !isSelectedStylistAvailable) {
+          if (matchingStylists.isNotEmpty) {
+            setState(() {
+              _selectedStylist = matchingStylists.first;
+            });
+            _loadAvailableSlots();
+          } else {
+            setState(() {
+              _selectedStylist = null;
+            });
+          }
+        }
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error loading available stylists: $e');
+      print('Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _isLoadingStylists = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadAvailableSlots() async {
@@ -232,11 +343,16 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
             _HeaderSection(
               stylist: _selectedStylist,
               selectedDate: _selectedDate,
+              availableStylistIds: _availableStylistIds,
+              isLoadingStylists: _isLoadingStylists,
               onDateSelected: (date) {
+                // Normalize date để đảm bảo không có time component
+                final normalizedDate = DateTime(date.year, date.month, date.day);
                 setState(() {
-                  _selectedDate = date;
+                  _selectedDate = normalizedDate;
                   _selectedTimeSlot = null; // Reset time when date changes
                 });
+                _loadAvailableStylistsForDate(normalizedDate);
                 _loadAvailableSlots();
               },
               onStylistChanged: (stylist) {
@@ -361,6 +477,8 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
 class _HeaderSection extends StatelessWidget {
   final Stylist? stylist;
   final DateTime selectedDate;
+  final Set<String> availableStylistIds;
+  final bool isLoadingStylists;
   final Function(DateTime) onDateSelected;
   final Function(Stylist)? onStylistChanged;
   final VoidCallback onBack;
@@ -368,6 +486,8 @@ class _HeaderSection extends StatelessWidget {
   const _HeaderSection({
     required this.stylist,
     required this.selectedDate,
+    required this.availableStylistIds,
+    required this.isLoadingStylists,
     required this.onDateSelected,
     this.onStylistChanged,
     required this.onBack,
@@ -533,9 +653,11 @@ class _HeaderSection extends StatelessWidget {
 
   List<DateTime> _getDateOptions() {
     final dates = <DateTime>[];
+    // Sử dụng local date (không bị ảnh hưởng bởi timezone)
     final today = DateTime.now();
+    final todayLocal = DateTime(today.year, today.month, today.day);
     for (int i = 0; i < 14; i++) {
-      dates.add(today.add(Duration(days: i)));
+      dates.add(DateTime(todayLocal.year, todayLocal.month, todayLocal.day + i));
     }
     return dates;
   }
@@ -557,7 +679,13 @@ class _HeaderSection extends StatelessWidget {
       ),
       builder: (context) => Consumer<StylistProvider>(
         builder: (context, stylistProvider, _) {
-          final stylists = stylistProvider.stylists;
+          // Chỉ hiển thị những stylists có schedule vào ngày được chọn
+          // Normalize IDs để so sánh
+          final normalizedAvailableIds = availableStylistIds.map((id) => id.trim().toLowerCase()).toSet();
+          final availableStylists = stylistProvider.stylists
+              .where((s) => normalizedAvailableIds.contains(s.id.trim().toLowerCase()))
+              .toList();
+          
           return Container(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -568,26 +696,49 @@ class _HeaderSection extends StatelessWidget {
                   'Chọn thợ cắt tóc',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
-                ...stylists.map(
-                  (s) => ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: s.avatarUrl != null
-                          ? NetworkImage(s.avatarUrl!)
-                          : null,
-                      child: s.avatarUrl == null
-                          ? const Icon(Icons.person)
-                          : null,
+                const SizedBox(height: 8),
+                if (isLoadingStylists)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (availableStylists.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text(
+                      'Không có thợ cắt tóc nào có lịch làm việc vào ngày này',
+                      style: TextStyle(color: Colors.grey),
                     ),
-                    title: Text(s.fullName),
-                    subtitle: Text('Rating: ${s.ratingAvg.toStringAsFixed(1)}'),
-                    selected: stylist?.id == s.id,
-                    onTap: () {
-                      onStylistChanged?.call(s);
-                      Navigator.pop(context);
-                    },
+                  )
+                else ...[
+                  Text(
+                    'Có ${availableStylists.length} thợ cắt tóc có lịch làm việc',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  ...availableStylists.map(
+                    (s) => ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: s.avatarUrl != null
+                            ? NetworkImage(s.avatarUrl!)
+                            : null,
+                        child: s.avatarUrl == null
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      title: Text(s.fullName),
+                      subtitle: Text('Rating: ${s.ratingAvg.toStringAsFixed(1)}'),
+                      selected: stylist?.id == s.id,
+                      onTap: () {
+                        onStylistChanged?.call(s);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
             ),

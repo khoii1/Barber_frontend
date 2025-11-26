@@ -59,6 +59,12 @@ dependencies:
   # Image picker
   image_picker: ^1.0.7
 
+  firebase_core: ^4.2.1
+
+  firebase_messaging: ^16.0.4
+
+  # Hiển thị notification khi app ở foreground
+  flutter_local_notifications: ^17.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -42,6 +42,10 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
         endDate: _formatDate(endDate),
       );
 
+      // Filter các ngày đã qua
+      final today = DateTime.now();
+      final todayNormalized = DateTime(today.year, today.month, today.day);
+      
       setState(() {
         _scheduledDates = schedules
             .map((schedule) {
@@ -52,6 +56,10 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
               return null;
             })
             .whereType<DateTime>()
+            .where((date) {
+              // Chỉ giữ các ngày từ hôm nay trở đi
+              return date.isAtSameMomentAs(todayNormalized) || date.isAfter(todayNormalized);
+            })
             .toSet();
         _selectedDates = Set.from(_scheduledDates);
       });
@@ -436,66 +444,86 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Selected dates list
-                  if (_selectedDates.isNotEmpty) ...[
-                    Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Các ngày đã chọn (${_selectedDates.length})',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: _darkGreen,
+                  // Selected dates list - chỉ hiển thị các ngày từ hôm nay trở đi
+                  Builder(
+                    builder: (context) {
+                      final today = DateTime.now();
+                      final todayNormalized = DateTime(today.year, today.month, today.day);
+                      final futureSelectedDates = _selectedDates
+                          .where((date) {
+                            final normalizedDate = _normalizeDate(date);
+                            return normalizedDate.isAtSameMomentAs(todayNormalized) || 
+                                   normalizedDate.isAfter(todayNormalized);
+                          })
+                          .toList();
+                      
+                      if (futureSelectedDates.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      
+                      return Column(
+                        children: [
+                          Card(
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Các ngày đã chọn (${futureSelectedDates.length})',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: _darkGreen,
+                                        ),
                                   ),
+                                  const SizedBox(height: 12),
+                                  ...(futureSelectedDates
+                                    ..sort((a, b) => a.compareTo(b)))
+                                    .map((date) {
+                                      final normalizedDate = _normalizeDate(date);
+                                      final isScheduled = _scheduledDates.any((d) => _normalizeDate(d).isAtSameMomentAs(normalizedDate));
+                                      return ListTile(
+                                        dense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(
+                                          Icons.calendar_today,
+                                          size: 20,
+                                          color: _darkGreen,
+                                        ),
+                                        title: Text(
+                                          _formatDateDisplay(date),
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                        trailing: IconButton(
+                                          icon: Icon(
+                                            isScheduled 
+                                                ? Icons.delete_outline 
+                                                : Icons.close,
+                                            size: 20,
+                                          ),
+                                          color: Colors.red,
+                                          onPressed: _isSaving 
+                                              ? null 
+                                              : () => _removeDate(date),
+                                          tooltip: isScheduled 
+                                              ? 'Xóa ngày làm việc' 
+                                              : 'Bỏ chọn ngày',
+                                        ),
+                                      );
+                                    }).toList(),
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 12),
-                            ...(_selectedDates.toList()
-                              ..sort((a, b) => a.compareTo(b)))
-                              .map((date) {
-                                final normalizedDate = _normalizeDate(date);
-                                final isScheduled = _scheduledDates.any((d) => _normalizeDate(d).isAtSameMomentAs(normalizedDate));
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Icon(
-                                    Icons.calendar_today,
-                                    size: 20,
-                                    color: _darkGreen,
-                                  ),
-                                  title: Text(
-                                    _formatDateDisplay(date),
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  trailing: IconButton(
-                                    icon: Icon(
-                                      isScheduled 
-                                          ? Icons.delete_outline 
-                                          : Icons.close,
-                                      size: 20,
-                                    ),
-                                    color: Colors.red,
-                                    onPressed: _isSaving 
-                                        ? null 
-                                        : () => _removeDate(date),
-                                    tooltip: isScheduled 
-                                        ? 'Xóa ngày làm việc' 
-                                        : 'Bỏ chọn ngày',
-                                  ),
-                                );
-                              }).toList(),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      );
+                    },
+                  ),
 
                   // Save button
                   Padding(

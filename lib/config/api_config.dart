@@ -1,6 +1,6 @@
 class ApiConfig {
   // Thay đổi địa chỉ này thành địa chỉ backend của bạn
-  static const String baseUrl = 'http://192.168.1.4:8080';
+  static const String baseUrl = 'http://192.168.1.8:8080';
 
   // API endpoints
   static const String auth = '/auth';

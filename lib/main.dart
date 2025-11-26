@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/service_provider.dart';
@@ -10,8 +12,37 @@ import 'providers/payment_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/stylist_home_screen.dart';
+import 'services/notification_service.dart';
 
-void main() {
+// Background message handler (PHẢI là top-level function)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  NotificationService.handleBackgroundMessage(message);
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Khởi tạo Firebase
+  try {
+    await Firebase.initializeApp();
+    print('✅ Firebase initialized successfully');
+    
+    // Khởi tạo local notifications
+    await NotificationService.initializeLocalNotifications();
+    print('✅ Local notifications initialized');
+    
+    // Setup background message handler
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    
+    // Setup notification handlers
+    NotificationService.setupNotificationHandlers();
+  } catch (e) {
+    print('⚠️ Firebase initialization error: $e');
+    print('⚠️ Push notification sẽ không hoạt động. Kiểm tra cấu hình Firebase.');
+  }
+  
   runApp(const MyApp());
 }
 

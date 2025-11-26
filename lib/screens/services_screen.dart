@@ -30,11 +30,11 @@ class _ServicesScreenState extends State<ServicesScreen> {
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return 'GOOD MORNING';
+      return 'Chào Buổi Sáng';
     } else if (hour < 17) {
-      return 'GOOD AFTERNOON';
+      return 'Chào Buổi Chiều';
     } else {
-      return 'GOOD EVENING';
+      return 'Chào Buổi Tối';
     }
   }
 
@@ -109,7 +109,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                       child: Text(
-                        'SERVICES',
+                        'Dịch Vụ',
                         style: TextStyle(
                           color: _darkGreen,
                           fontSize: 24,
@@ -187,7 +187,7 @@ class _HeaderSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Fresh fades, clean cuts.',
+            'Tóc gọn gàng, phong cách chuẩn bạn.',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -196,7 +196,7 @@ class _HeaderSection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Your style, just one tap away.',
+            'Đặt lịch nhanh – chạm nhẹ là xong.',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -321,11 +321,7 @@ class _ServiceCard extends StatelessWidget {
             ),
           ),
           // Divider line
-          Container(
-            height: 1,
-            color: _darkGreen,
-            width: double.infinity,
-          ),
+          Container(height: 1, color: _darkGreen, width: double.infinity),
         ],
       ),
     );
